@@ -10,11 +10,9 @@ const DIM = 9
 
 // Board represents a sudoku board
 type Board struct {
-	cell         [][]int
-	rowRemaining []int
-	colRemaining []int
-	remaining    int
-	backtracks   int
+	cell       [][]int
+	remaining  int
+	backtracks int
 }
 
 // NewBoard creates an empty sudoku board
@@ -24,15 +22,6 @@ func NewBoard() *Board {
 	b.cell = make([][]int, DIM)
 	for i := range b.cell {
 		b.cell[i] = make([]int, DIM)
-	}
-	// Init remaining counters
-	b.rowRemaining = make([]int, DIM)
-	for i := range b.rowRemaining {
-		b.rowRemaining[i] = DIM
-	}
-	b.colRemaining = make([]int, DIM)
-	for i := range b.colRemaining {
-		b.colRemaining[i] = DIM
 	}
 	b.remaining = DIM * DIM
 	return b
@@ -57,8 +46,6 @@ func (b *Board) ValidSolution() bool {
 func (b *Board) MakeMove(row, col, val int) {
 	if b.cell[row][col] == 0 && val != 0 {
 		b.remaining--
-		b.rowRemaining[row]--
-		b.colRemaining[col]--
 	}
 	b.cell[row][col] = val
 }
@@ -67,8 +54,6 @@ func (b *Board) MakeMove(row, col, val int) {
 func (b *Board) UnmakeMove(row, col int) {
 	if b.cell[row][col] != 0 {
 		b.remaining++
-		b.rowRemaining[row]++
-		b.colRemaining[col]++
 		b.cell[row][col] = 0
 	}
 	b.backtracks++
@@ -76,20 +61,23 @@ func (b *Board) UnmakeMove(row, col int) {
 
 // NextEmptyCell tells our solver which cell to work on next
 func (b *Board) NextEmptyCell() (row, col int) {
-	row = -1
-	col = -1
-	rmin := DIM + 1
-	cmin := DIM + 1
-	// Look for most constrained row
-	for i, rem := range b.rowRemaining {
-		if 0 < rem && rem < rmin {
-			row, rmin = i, rem
-		}
-	}
-	// Look for most constrained empty column in this row
-	for i, rem := range b.colRemaining {
-		if b.cell[row][i] == 0 && 0 < rem && rem < cmin {
-			col, cmin = i, rem
+	min := DIM + 1
+	for ri, cols := range b.cell {
+		for ci, val := range cols {
+			if val == 0 {
+				cur := 0
+				candidates := b.CellCandidates(ri, ci)
+				// Count candidates
+				for i := 1; i <= DIM; i++ {
+					if candidates[i] {
+						cur++
+					}
+				}
+				if cur < min {
+					row, col = ri, ci
+					min = cur
+				}
+			}
 		}
 	}
 	// Return row, col
@@ -104,9 +92,9 @@ func (b *Board) CellCandidates(row, col int) []bool {
 	if col < 0 || DIM < col {
 		panic(fmt.Sprintf("Invalid col passed: %v", col))
 	}
-	// Will we use a 1-based slice for readability
+	// Will we use a 1-based slice for readability, 0 will always be false
 	candidates := make([]bool, DIM+1)
-	// Everything is valid initially
+	// Set everything to valid (except 0)
 	for i := 1; i <= DIM; i++ {
 		candidates[i] = true
 	}
